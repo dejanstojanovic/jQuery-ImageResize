@@ -1,4 +1,14 @@
-﻿$.fn.ImageResize = function (options) {
+﻿/*
+ * jQuery Plugin: jQuery Image Resize
+ * https://github.com/dejanstojanovic/jQuery-ImageResize
+ * Version 1.0.0
+ *
+ * Copyright (c) 2016 Dejan Stojanovic (http://dejanstojanovic.net)
+ *
+ * Released under the MIT license
+ */
+
+$.fn.ImageResize = function (options) {
     var defaults = {
         maxWidth: Number.MAX_VALUE,
         maxHeigt: Number.MAX_VALUE,
