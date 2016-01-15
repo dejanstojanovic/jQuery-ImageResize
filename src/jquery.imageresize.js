@@ -2,7 +2,9 @@
     var defaults = {
         maxWidth: Number.MAX_VALUE,
         maxHeigt: Number.MAX_VALUE,
-        onImageResized: null
+        onImageResized: null,
+        onImagesSelected: null,
+        onImagesProcessed: null
     }
     var settings = $.extend({}, defaults, options);
     var selector = $(this);
@@ -21,6 +23,11 @@
     });
 
     function handleFileSelect(event) {
+
+        if (settings.onImagesSelected != null && typeof (settings.onImagesSelected) == "function") {
+            settings.onImagesSelected(event);
+        }
+
         //Check File API support
         if (window.File && window.FileList && window.FileReader) {
             var count = 0;
@@ -29,7 +36,10 @@
             for (var i = 0; i < files.length; i++) {
                 var file = files[i];
                 //Only pics
-                if (!file.type.match('image')) continue;
+                if (!file.type.match('image')) {
+                    count++;
+                    continue;
+                }
 
                 var picReader = new FileReader();
                 picReader.addEventListener("load", function (event) {
@@ -61,14 +71,22 @@
                             context.drawImage(img, 0, 0, width, height);
                             imageData = canvas.toDataURL();
 
+                            count++;
+
                             if (settings.onImageResized != null && typeof (settings.onImageResized) == "function") {
                                 settings.onImageResized(imageData);
+                            }
+
+                            if (count == files.length) {
+                                if (settings.onImagesProcessed != null && typeof (settings.onImagesProcessed) == "function") {
+                                    settings.onImagesProcessed(imageData);
+                                }
                             }
                         }
 
                     }
                     img.onerror = function () {
-
+                        count++;
                     }
                 });
                 //Read the image
