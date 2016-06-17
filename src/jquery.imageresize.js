@@ -28,7 +28,7 @@ $.fn.ImageResize = function (options) {
             control.addEventListener('change', handleFileSelect, false);
         }
         else {
-            cosole.log("Invalid file input field");
+            console.log("Invalid file input field");
         }
     });
 
