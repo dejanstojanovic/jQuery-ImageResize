@@ -1,111 +1,140 @@
-﻿/*
- * jQuery Plugin: jQuery Image Resize
- * https://github.com/dejanstojanovic/jQuery-ImageResize
- * Version 1.0.0
- *
- * Copyright (c) 2016 Dejan Stojanovic (http://dejanstojanovic.net)
- *
- * Released under the MIT license
- */
+(function($) {
+    $.fn.ImageResize = function(options) {
+        var defaults = {
+            maxWidth: Number.MAX_VALUE,
+            maxHeight: Number.MAX_VALUE,
+            longestEdge: Number.MAX_VALUE,
+            onImageResized: null,
+            onComplete: null,
+            onFailure: null
+    };
 
-$.fn.ImageResize = function (options) {
-    var defaults = {
-        maxWidth: Number.MAX_VALUE,
-        maxHeigt: Number.MAX_VALUE,
-        onImageResized: null,
-        onImagesSelected: null,
-        onImagesProcessed: null
-    }
-    var settings = $.extend({}, defaults, options);
-    var selector = $(this);
+        var settings = $.extend({}, defaults, options);
+        var selector = $(this);
 
-    selector.each(function (index) {
-        var control = selector.get(index);
-        if ($(control).prop("tagName").toLowerCase() == "input" && $(control).attr("type").toLowerCase() == "file") {
-            $(control).attr("accept", "image/*");
-            $(control).attr("multiple", "true");
-            
-            control.addEventListener('change', handleFileSelect, false);
-        }
-        else {
-            console.log("Invalid file input field");
-        }
-    });
+        selector.each(function(index) {
+            var control = selector.get(index);
+            if ($(control).attr("tagName").toLowerCase() == "input" && $(control).attr("type").toLowerCase() == "file") {
+                $(control).attr("accept", "image/*");
+                $(control).attr("multiple", "true");
 
-    function handleFileSelect(event) {
+                control.addEventListener('change', handleFileSelect, false);
+            } else {
+                settings.onFailure("Invalid file input field");
+            }
+        });
 
-        if (settings.onImagesSelected != null && typeof (settings.onImagesSelected) == "function") {
-            settings.onImagesSelected(event);
-        }
+        function handleFileSelect() {
+            //Check File API support
+            if (window.File && window.FileList && window.FileReader) {
+                var files = event.target.files;
 
-        //Check File API support
-        if (window.File && window.FileList && window.FileReader) {
-            var count = 0;
-            var files = event.target.files;
-
-            for (var i = 0; i < files.length; i++) {
-                var file = files[i];
-                //Only pics
-                if (!file.type.match('image')) {
-                    count++;
-                    continue;
+                if (files.length === 0) {
+                    settings.onFailure("");
+                    return false;
                 }
 
-                var picReader = new FileReader();
-                picReader.addEventListener("load", function (event) {
-                    var picFile = event.target;
-                    var imageData = picFile.result;
-                    var img = new Image();
-                    img.src = imageData;
-                    img.onload = function () {
-                        if (img.width > settings.maxWidth || img.height > settings.maxHeigt) {
-                            var width = settings.maxWidth;
-                            var height = settings.maxHeigt;
+                for (var i = 0; i < files.length; i++) {
+                    var uploadedFile = files[i];
+                    ////Only pics
+                    var reader = new FileReader();
 
-                            if (img.width > settings.maxWidth) {
-                                width = settings.maxWidth;
-                                var ration = settings.maxWidth / img.width;
-                                height = Math.round(img.height * ration);
-                            }
-
-                            if (height > settings.maxHeigt) {
-                                height = settings.maxHeigt;
-                                var ration = settings.maxHeigt / img.height;
-                                width = Math.round(img.width * ration);
-                            }
-
-                            var canvas = $("<canvas/>").get(0);
-                            canvas.width = width;
-                            canvas.height = height;
-                            var context = canvas.getContext('2d');
-                            context.drawImage(img, 0, 0, width, height);
-                            imageData = canvas.toDataURL();
-
-                            count++;
-
-                            if (settings.onImageResized != null && typeof (settings.onImageResized) == "function") {
-                                settings.onImageResized(imageData);
-                            }
-
-                            if (count == files.length) {
-                                if (settings.onImagesProcessed != null && typeof (settings.onImagesProcessed) == "function") {
-                                    settings.onImagesProcessed(imageData);
+                    if (!uploadedFile.type.match('image')) {
+                        reader.addEventListener("load", function(event) {
+                            var file = event.target;
+                            var fileData = file.result;
+                            selector.each(function () {
+                                if ($(this).val() !== "") {
+                                    settings.onFailure("Please upload an image");
+                                    return;
                                 }
-                            }
-                        }
+                            });
+                        });
+                    } else {
+                        reader.addEventListener("load", function(event) {
+                            var file = event.target;
+                            var fileData = file.result;
 
+                            var canvasSettings = {
+                                width: 0,
+                                height: 0,
+                                adjustedHeight: Number.MAX_VALUE,
+                                adjustedWidth: Number.MAX_VALUE,
+                                img: new Image()
+                            };
+                            canvasSettings.img.src = fileData;
+                            canvasSettings.img.onload = function() {
+                                canvasSettings.height = canvasSettings.img.height;
+                                canvasSettings.width = canvasSettings.img.width;
+
+                                if (settings.longestEdge == Number.MAX_VALUE) {
+                                    if (canvasSettings.img.width > settings.maxWidth || canvasSettings.img.height > settings.maxHeight) {
+
+                                        if (canvasSettings.img.width > settings.maxWidth) {
+                                            setBasedOnWidth(settings.maxWidth, canvasSettings);
+                                        }
+
+                                        if (canvasSettings.height > settings.maxHeight) {
+                                            setBasedOnHeight(settings.longestEdge, canvasSettings);
+                                        }
+                                    }
+                                } else {
+                                    var widthIsLongest = (canvasSettings.img.width > canvasSettings.img.height) ? true : false;
+                                    if (widthIsLongest) {
+                                        if (canvasSettings.img.width > settings.longestEdge) {
+                                            setBasedOnWidth(settings.longestEdge, canvasSettings);
+                                        }
+                                    } else {
+                                        if (canvasSettings.img.height > settings.longestEdge) {
+                                            setBasedOnHeight(settings.longestEdge, canvasSettings);
+                                        }
+                                    }
+                                }
+
+                                var canvas = $("<canvas/>").get(0);
+                                canvas.width = canvasSettings.width;
+                                canvas.height = canvasSettings.height;
+                                var context = canvas.getContext('2d');
+                                context.drawImage(canvasSettings.img, 0, 0, canvasSettings.width, canvasSettings.height);
+                                fileData = canvas.toDataURL();
+
+                                if (settings.onImageResized !== null && typeof (settings.onImageResized) == "function") {
+                                    settings.onImageResized(fileData);
+                                }
+
+                                selector.each(function () {
+                                    if ($(this).val() !== "") {
+                                        settings.onComplete(fileData, true, $(this));
+                                    }
+                                });
+
+                            };
+                            canvasSettings.img.onerror = function() {
+                                settings.onFailure("Please upload a file.");
+                            };
+                        });
                     }
-                    img.onerror = function () {
-                        count++;
-                    }
-                });
-                //Read the image
-                picReader.readAsDataURL(file);
+                        //Read the file
+                        reader.readAsDataURL(uploadedFile);
+
+                }
+            } else {
+                settings.onFailure("Your browser does not support File API");
             }
-        } else {
-            console.log("Your browser does not support File API");
+
         }
-    }
 
+        function setBasedOnWidth(adjustedWidth, canvasSettings) {
+            canvasSettings.width = adjustedWidth;
+            var ration = canvasSettings.width / canvasSettings.img.width;
+            canvasSettings.height = Math.round(canvasSettings.img.height * ration);
+        }
 
-}
+        function setBasedOnHeight(adjustedHeight, canvasSettings) {
+            canvasSettings.height = adjustedHeight;
+            var ration = canvasSettings.height / canvasSettings.img.height;
+            canvasSettings.width = Math.round(canvasSettings.img.width * ration);
+        }
+
+    };
+}(jQuery));
